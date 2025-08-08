@@ -41,4 +41,4 @@ async def input_endpoint(request: Request):
         f.write(json.dumps(record, ensure_ascii=False) + "\n")
 
     # Lightweight, unambiguous ack
-    return PlainTextResponse("OK")
+    return JSONResponse({"ok": True})  # JSON, not text
