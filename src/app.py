@@ -2,6 +2,7 @@ import os, json, time
 from pathlib import Path
 from fastapi import FastAPI, Request, HTTPException
 from fastapi.responses import JSONResponse
+from fastapi.responses import PlainTextResponse
 
 LOG_DIR = Path(os.getenv("LOG_DIR", "/data"))
 LOG_FILE = LOG_DIR / "overland.ndjson"
@@ -12,15 +13,14 @@ app = FastAPI()
 
 @app.post("/api/input")
 async def input_endpoint(request: Request):
-    # auth: query token
-    token = request.query_params.get("token")
+    token = (request.query_params.get("token") or "").strip()
     if not TOKEN or token != TOKEN:
         raise HTTPException(status_code=401, detail="bad token")
 
-    # optional: header auth check (e.g., "Bearer xyz")
     if AUTH_SECRET:
-        auth = request.headers.get("authorization", "")
-        if AUTH_SECRET not in auth:
+        auth = (request.headers.get("authorization") or "").strip()
+        # accept exact match OR "Bearer <secret>"
+        if auth != AUTH_SECRET and auth != f"Bearer {AUTH_SECRET}":
             raise HTTPException(status_code=401, detail="bad authorization")
 
     try:
@@ -40,4 +40,5 @@ async def input_endpoint(request: Request):
         }
         f.write(json.dumps(record, ensure_ascii=False) + "\n")
 
-    return JSONResponse({"ok": True})
+    # Lightweight, unambiguous ack
+    return PlainTextResponse("OK")
