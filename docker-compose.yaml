@@ -1,0 +1,15 @@
+version: "3.8"
+services:
+  overland-receiver:
+    build: .
+    image: overland-receiver:latest
+    container_name: overland-receiver
+    environment:
+      INGEST_TOKEN: "${INGEST_TOKEN}"
+      AUTH_SECRET: "${AUTH_SECRET}"   # optional; leave empty to disable
+      LOG_DIR: /data
+    ports:
+      - "8000:8000"
+    volumes:
+      - ./data:/data
+    restart: unless-stopped
