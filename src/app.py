@@ -19,10 +19,17 @@ async def input_endpoint(request: Request):
 
     if AUTH_SECRET:
         auth = (request.headers.get("authorization") or "").strip()
+        # accept exact match OR "Bearer <secret>"
         if auth != AUTH_SECRET and auth != f"Bearer {AUTH_SECRET}":
             raise HTTPException(status_code=401, detail="bad authorization")
 
-    payload = await request.json()
+    try:
+        payload = await request.json()
+        if not isinstance(payload, dict) or "locations" not in payload:
+            raise ValueError("missing locations")
+    except Exception:
+        raise HTTPException(status_code=400, detail="invalid JSON")
+
     LOG_DIR.mkdir(parents=True, exist_ok=True)
     with LOG_FILE.open("a", encoding="utf-8") as f:
         record = {
@@ -33,4 +40,5 @@ async def input_endpoint(request: Request):
         }
         f.write(json.dumps(record, ensure_ascii=False) + "\n")
 
-    return {"success": True}  # plain dict => JSON
+    # Lightweight, unambiguous ack
+    return {"result": "ok"}
