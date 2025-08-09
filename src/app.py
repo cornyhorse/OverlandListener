@@ -13,12 +13,37 @@ S3_BUCKET = os.getenv("S3_BUCKET")
 S3_PREFIX = os.getenv("S3_PREFIX", "").strip().strip("/")  # optional
 AWS_REGION = os.getenv("AWS_REGION")  # optional; boto3 will also use env/role/instance profile
 AWS_ENDPOINT_URL = os.getenv("AWS_ENDPOINT_URL")
+DEBUG = os.getenv("DEBUG", "0")
+DEBUG_PRINT_CREDS = os.getenv("DEBUG_PRINT_CREDS", "0")
 
 app = FastAPI()
 s3 = None
 
 
 # ---- Helpers ----
+def _truthy(v) -> bool:
+    return str(v).strip().lower() in ("1", "true", "yes", "y", "on")
+
+def log_config():
+    print(f"[CFG] STORAGE_BACKEND={STORAGE_BACKEND}")
+    if STORAGE_BACKEND == "filesystem":
+        print(f"[CFG] LOG_DIR={LOG_DIR}")
+    else:
+        print(f"[CFG] S3_BUCKET={S3_BUCKET}")
+        print(f"[CFG] S3_PREFIX={S3_PREFIX}")
+        print(f"[CFG] AWS_REGION={AWS_REGION}")
+        print(f"[CFG] AWS_ENDPOINT_URL={AWS_ENDPOINT_URL}")
+        ak = os.getenv("AWS_ACCESS_KEY_ID")
+        sk = os.getenv("AWS_SECRET_ACCESS_KEY")
+        if _truthy(DEBUG_PRINT_CREDS):
+            print(f"[CFG] AWS_ACCESS_KEY_ID={ak}")
+            print(f"[CFG] AWS_SECRET_ACCESS_KEY={sk}")
+        else:
+            if ak:
+                print(f"[CFG] AWS_ACCESS_KEY_ID={ak[:4]}...{ak[-4:]} (masked)")
+            else:
+                print("[CFG] AWS_ACCESS_KEY_ID=(unset)")
+            print("[CFG] AWS_SECRET_ACCESS_KEY=*** (masked)")
 def compact_json(d: dict) -> str:
     return json.dumps(d, separators=(",", ":"), ensure_ascii=False)
 
@@ -72,9 +97,19 @@ def startup_write_check() -> None:
             raise RuntimeError("S3_BUCKET not set for s3 backend")
         key = s3_key_for("healthcheck.txt")
         client = get_s3_client()
-        client.put_object(Bucket=S3_BUCKET, Key=key, Body=test_content, ContentType="text/plain")
-        # optional cleanup; comment out if you want it to stay
-        client.delete_object(Bucket=S3_BUCKET, Key=key)
+        try:
+            client.put_object(Bucket=S3_BUCKET, Key=key, Body=test_content, ContentType="text/plain")
+            # optional cleanup; comment out if you want it to stay
+            client.delete_object(Bucket=S3_BUCKET, Key=key)
+            print(f"[HC] S3 write/delete ok at s3://{S3_BUCKET}/{key}")
+        except Exception as e:
+            print(f"[HC] S3 write-check failed: {e}")
+            if _truthy(DEBUG) and _truthy(DEBUG_PRINT_CREDS):
+                ak = os.getenv("AWS_ACCESS_KEY_ID")
+                sk = os.getenv("AWS_SECRET_ACCESS_KEY")
+                print(f"[HC] DEBUG CREDS AWS_ACCESS_KEY_ID={ak}")
+                print(f"[HC] DEBUG CREDS AWS_SECRET_ACCESS_KEY={sk}")
+            raise
     else:
         LOG_DIR.mkdir(parents=True, exist_ok=True)
         hc = LOG_DIR / "healthcheck.txt"
@@ -98,10 +133,33 @@ def get_s3_client():
 # ---- FastAPI lifecycle ----
 @app.on_event("startup")
 def on_startup():
+    if _truthy(DEBUG):
+        log_config()
     startup_write_check()
 
 
 # ---- Endpoint ----
+
+# Debug endpoint guarded by DEBUG flag
+@app.get("/debug/env")
+def debug_env():
+    if not _truthy(DEBUG):
+        raise HTTPException(status_code=404, detail="not found")
+    ak = os.getenv("AWS_ACCESS_KEY_ID")
+    masked_ak = f"{ak[:4]}...{ak[-4:]}" if ak else None
+    return {
+        "storage_backend": STORAGE_BACKEND,
+        "log_dir": str(LOG_DIR),
+        "s3_bucket": S3_BUCKET,
+        "s3_prefix": S3_PREFIX,
+        "aws_region": AWS_REGION,
+        "aws_endpoint_url": AWS_ENDPOINT_URL,
+        "aws_access_key_id": masked_ak,
+        "debug": _truthy(DEBUG),
+        "debug_print_creds": _truthy(DEBUG_PRINT_CREDS),
+    }
+
+
 @app.post("/api/input")
 async def input_endpoint(request: Request):
     token = (request.query_params.get("token") or "").strip()
