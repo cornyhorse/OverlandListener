@@ -35,6 +35,7 @@ def fs_write_request(payload: dict) -> None:
     name = make_name(payload)
     with (req_dir / name).open("w", encoding="utf-8") as f:
         f.write(compact_json(payload))
+    print(f"[FS] Saved request to {req_dir / name}")
 
 
 def s3_key_for(name: str) -> str:
@@ -52,6 +53,7 @@ def s3_write_request(payload: dict) -> None:
         Body=compact_json(payload).encode("utf-8"),
         ContentType="application/json",
     )
+    print(f"[S3] Uploaded request to s3://{S3_BUCKET}/{key}")
 
 
 def write_request(payload: dict) -> None:
