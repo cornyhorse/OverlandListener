@@ -13,6 +13,7 @@ services:
       AWS_REGION: "${AWS_REGION}"      # optional
       AWS_ACCESS_KEY_ID: "${AWS_ACCESS_KEY_ID}"        # or IAM role if on EC2
       AWS_SECRET_ACCESS_KEY: "${AWS_SECRET_ACCESS_KEY}"
+      AWS_ENDPOINT_URL: "${AWS_ENDPOINT_URL}"
       LOG_DIR: /data
     ports:
       - "8000:8000"
