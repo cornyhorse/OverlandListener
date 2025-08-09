@@ -103,12 +103,20 @@ def startup_write_check() -> None:
             client.delete_object(Bucket=S3_BUCKET, Key=key)
             print(f"[HC] S3 write/delete ok at s3://{S3_BUCKET}/{key}")
         except Exception as e:
-            print(f"[HC] S3 write-check failed: {e}")
-            if _truthy(DEBUG) and _truthy(DEBUG_PRINT_CREDS):
-                ak = os.getenv("AWS_ACCESS_KEY_ID")
-                sk = os.getenv("AWS_SECRET_ACCESS_KEY")
-                print(f"[HC] DEBUG CREDS AWS_ACCESS_KEY_ID={ak}")
-                print(f"[HC] DEBUG CREDS AWS_SECRET_ACCESS_KEY={sk}")
+            print(f"[HC] S3 write-check failed: {e}", flush=True)
+            # Print where we tried to write
+            print(f"[HC] Endpoint={AWS_ENDPOINT_URL} Bucket={S3_BUCKET} Key={key}", flush=True)
+            # Print creds (masked by default; full if DEBUG_PRINT_CREDS truthy)
+            ak = os.getenv("AWS_ACCESS_KEY_ID") or ""
+            sk = os.getenv("AWS_SECRET_ACCESS_KEY") or ""
+            def _mask(s: str) -> str:
+                return f"{s[:4]}...{s[-4:]}" if s and len(s) > 8 else ("(unset)" if not s else s)
+            if _truthy(DEBUG_PRINT_CREDS):
+                print(f"[HC] AWS_ACCESS_KEY_ID={ak}", flush=True)
+                print(f"[HC] AWS_SECRET_ACCESS_KEY={sk}", flush=True)
+            else:
+                print(f"[HC] AWS_ACCESS_KEY_ID={_mask(ak)}", flush=True)
+                print(f"[HC] AWS_SECRET_ACCESS_KEY=*** (masked)", flush=True)
             raise
     else:
         LOG_DIR.mkdir(parents=True, exist_ok=True)
