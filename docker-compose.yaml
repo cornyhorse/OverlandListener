@@ -2,7 +2,7 @@ version: "3.8"
 services:
   overland-listener:
     build: .
-    image: overland-listener:latest
+    image: overland-listener:1.0.0
     container_name: overland-listener
     environment:
       INGEST_TOKEN: "${INGEST_TOKEN}"
@@ -15,8 +15,15 @@ services:
       AWS_SECRET_ACCESS_KEY: "${AWS_SECRET_ACCESS_KEY}"
       AWS_ENDPOINT_URL: "${AWS_ENDPOINT_URL}"
       LOG_DIR: /data
+      MAX_BODY_BYTES: "${MAX_BODY_BYTES:-1048576}"
     ports:
       - "8000:8000"
     volumes:
       - ./data:/data
+    healthcheck:
+      test: ["CMD", "python", "-c", "import urllib.request; urllib.request.urlopen('http://localhost:8000/health')"]
+      interval: 30s
+      timeout: 5s
+      start_period: 10s
+      retries: 3
     restart: unless-stopped

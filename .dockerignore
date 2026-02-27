@@ -1,0 +1,16 @@
+.git
+.github
+.gitignore
+.env
+.env.*
+!.env.example
+data/
+__pycache__/
+*.pyc
+*.pyo
+tests/
+requirements-dev.txt
+LICENSE
+README.md
+docker-compose.yaml
+.dockerignore

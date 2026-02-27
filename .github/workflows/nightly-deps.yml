@@ -1,0 +1,160 @@
+# Nightly dependency update — bump to latest, test, and release if changed
+name: Nightly Dependency Update
+
+on:
+  schedule:
+    # 04:00 UTC every day
+    - cron: "0 4 * * *"
+  workflow_dispatch: # allow manual trigger
+
+permissions:
+  contents: write
+
+jobs:
+  update-deps:
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+        with:
+          fetch-depth: 0 # full history for version tags
+
+      - uses: actions/setup-python@v5
+        with:
+          python-version: "3.12"
+
+      - name: Save current requirements
+        run: |
+          cp requirements.txt requirements.txt.old
+          cp requirements-dev.txt requirements-dev.txt.old
+
+      - name: Install current deps then find latest versions
+        run: |
+          pip install -r requirements-dev.txt
+
+          # Bump each pinned package in requirements.txt to the latest
+          # available version on PyPI.
+          python3 - <<'PYEOF'
+          import re, subprocess, sys
+
+          def latest_version(pkg_name: str) -> str:
+              """Query PyPI for the latest version of a package."""
+              result = subprocess.run(
+                  [sys.executable, "-m", "pip", "index", "versions", pkg_name],
+                  capture_output=True, text=True
+              )
+              # Output: "package_name (x.y.z)"
+              m = re.search(r'\(([^)]+)\)', result.stdout)
+              if m:
+                  return m.group(1)
+              # Fallback: install --dry-run
+              result = subprocess.run(
+                  [sys.executable, "-m", "pip", "install", f"{pkg_name}==999.999.999"],
+                  capture_output=True, text=True
+              )
+              versions = re.findall(r'from versions: (.+?)\)', result.stderr)
+              if versions:
+                  return versions[0].split(', ')[-1].strip()
+              return ""
+
+          for req_file in ["requirements.txt", "requirements-dev.txt"]:
+              lines = open(req_file).readlines()
+              new_lines = []
+              for line in lines:
+                  m = re.match(r'^([a-zA-Z0-9_-]+(?:\[[a-zA-Z0-9_,-]+\])?)==(.+)$', line.strip())
+                  if m:
+                      pkg, old_ver = m.group(1), m.group(2)
+                      # Strip extras for PyPI lookup
+                      bare_pkg = re.sub(r'\[.*\]', '', pkg)
+                      new_ver = latest_version(bare_pkg)
+                      if new_ver and new_ver != old_ver:
+                          print(f"  {pkg}: {old_ver} -> {new_ver}")
+                          new_lines.append(f"{pkg}=={new_ver}\n")
+                      else:
+                          new_lines.append(line)
+                  else:
+                      new_lines.append(line)
+              open(req_file, 'w').writelines(new_lines)
+          PYEOF
+
+      - name: Install updated deps
+        run: pip install -r requirements-dev.txt
+
+      - name: Run tests
+        id: tests
+        run: |
+          if pytest tests/ -v --cov=src --cov-report=term-missing --tb=short; then
+            echo "passed=true" >> "$GITHUB_OUTPUT"
+          else
+            echo "passed=false" >> "$GITHUB_OUTPUT"
+          fi
+
+      - name: Check for changes
+        id: diff
+        run: |
+          if diff -q requirements.txt requirements.txt.old > /dev/null 2>&1 && \
+             diff -q requirements-dev.txt requirements-dev.txt.old > /dev/null 2>&1; then
+            echo "changed=false" >> "$GITHUB_OUTPUT"
+          else
+            echo "changed=true" >> "$GITHUB_OUTPUT"
+            echo "### Dependency changes" >> "$GITHUB_STEP_SUMMARY"
+            diff requirements.txt.old requirements.txt >> "$GITHUB_STEP_SUMMARY" || true
+            diff requirements-dev.txt.old requirements-dev.txt >> "$GITHUB_STEP_SUMMARY" || true
+          fi
+
+      - name: Bump version and release
+        if: steps.diff.outputs.changed == 'true' && steps.tests.outputs.passed == 'true'
+        env:
+          GH_TOKEN: ${{ secrets.GITHUB_TOKEN }}
+        run: |
+          # Determine bump type: minor by default
+          python3 scripts/bump_version.py minor
+          NEW_VERSION=$(python3 -c "import re; print(re.search(r'__version__\s*=\s*\"([^\"]+)\"', open('src/app.py').read()).group(1))")
+          DATE=$(date +%Y-%m-%d)
+
+          # Build changelog entry from the diff
+          DEPS_CHANGED=$(diff requirements.txt.old requirements.txt | grep '^[<>]' | sed 's/^< /- /;s/^> /+ /' || true)
+          DEV_DEPS_CHANGED=$(diff requirements-dev.txt.old requirements-dev.txt | grep '^[<>]' | sed 's/^< /- /;s/^> /+ /' || true)
+
+          # Prepend to CHANGELOG.md
+          python3 - "$NEW_VERSION" "$DATE" "$DEPS_CHANGED" "$DEV_DEPS_CHANGED" <<'PYEOF'
+          import sys
+          version, date, deps, dev_deps = sys.argv[1], sys.argv[2], sys.argv[3], sys.argv[4]
+          entry = f"\n## [{version}] - {date}\n\n### Changed\n- Bumped dependencies to latest compatible versions.\n"
+          if deps.strip():
+              entry += f"\n#### Runtime\n```\n{deps}\n```\n"
+          if dev_deps.strip():
+              entry += f"\n#### Dev\n```\n{dev_deps}\n```\n"
+
+          text = open("CHANGELOG.md").read()
+          marker = "\n## ["
+          idx = text.find(marker)
+          if idx >= 0:
+              text = text[:idx] + "\n" + entry + text[idx:]
+          else:
+              text += "\n" + entry
+          open("CHANGELOG.md", "w").write(text)
+          PYEOF
+
+          # Commit and tag
+          git config user.name "github-actions[bot]"
+          git config user.email "github-actions[bot]@users.noreply.github.com"
+          git add requirements.txt requirements-dev.txt src/app.py Dockerfile docker-compose.yaml CHANGELOG.md
+          git commit -m "chore: bump dependencies and release v${NEW_VERSION}"
+          git tag "v${NEW_VERSION}"
+          git push origin main --tags
+
+          # Create GitHub release
+          gh release create "v${NEW_VERSION}" \
+            --title "v${NEW_VERSION}" \
+            --notes "Automated dependency update. See [CHANGELOG.md](CHANGELOG.md) for details." \
+            --latest
+
+      - name: Report failure
+        if: steps.diff.outputs.changed == 'true' && steps.tests.outputs.passed == 'false'
+        run: |
+          echo "::error::Tests failed after dependency bump. Manual intervention required."
+          echo "### ❌ Tests failed after dependency bump" >> "$GITHUB_STEP_SUMMARY"
+          echo "The following dependency changes caused test failures:" >> "$GITHUB_STEP_SUMMARY"
+          diff requirements.txt.old requirements.txt >> "$GITHUB_STEP_SUMMARY" || true
+          diff requirements-dev.txt.old requirements-dev.txt >> "$GITHUB_STEP_SUMMARY" || true
+          exit 1
