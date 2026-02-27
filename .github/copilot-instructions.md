@@ -14,6 +14,10 @@ filesystem or in S3-compatible object storage.
   in-flight work. Once a plan is finished its content is merged into the
   architecture doc or README and the plan file is marked complete.
 - **README**: `README.md` — user-facing setup, usage, and development guide.
+- **Deployment Guide**: `docs/deployment.md` — Docker, S3, TLS, Overland app
+  setup, security checklist (operator audience).
+- **Development Guide**: `docs/development.md` — local setup, testing,
+  formatting, CI, versioning, releases (contributor audience).
 
 ## Code Layout
 
@@ -32,12 +36,14 @@ CHANGELOG.md            — release history (Keep a Changelog format)
 ## Coding Conventions
 
 - **Python 3.12+**, type hints encouraged on all public functions.
+- **Formatting**: `black` (run `scripts/lint.sh --fix` to auto-format).
 - One import per line (PEP 8).
 - Use `logging` module — never bare `print()` for observability.
 - Secrets are **never** logged, even partially masked.
 - All secret comparisons must use `hmac.compare_digest()`.
 - Filesystem writes should be atomic (write to temp file, then `os.rename()`).
 - Keep `src/app.py` as a single file unless complexity warrants splitting.
+- PRs must pass lint + tests before merging to `main`. Direct pushes to `main` are not allowed.
 
 ## Testing
 

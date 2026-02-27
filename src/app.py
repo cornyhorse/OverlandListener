@@ -18,8 +18,7 @@ from fastapi.responses import JSONResponse
 # ---- Logging ----
 logger = logging.getLogger("overland")
 logging.basicConfig(
-    level=logging.DEBUG if os.getenv("DEBUG", "0").strip().lower()
-    in ("1", "true", "yes", "y", "on") else logging.INFO,
+    level=logging.DEBUG if os.getenv("DEBUG", "0").strip().lower() in ("1", "true", "yes", "y", "on") else logging.INFO,
     format="%(asctime)s %(levelname)s %(name)s %(message)s",
 )
 
@@ -110,6 +109,7 @@ def get_s3_client():
     global _s3_client
     if _s3_client is None:
         import boto3
+
         params: dict = {}
         if AWS_REGION:
             params["region_name"] = AWS_REGION
@@ -186,6 +186,7 @@ app = FastAPI(lifespan=lifespan)
 
 
 # ---- Endpoints ----
+
 
 @app.get("/health")
 def health():

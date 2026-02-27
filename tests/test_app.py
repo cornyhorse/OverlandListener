@@ -20,10 +20,12 @@ from fastapi.testclient import TestClient
 TEST_TOKEN = "test-token-abc123"
 TEST_AUTH_SECRET = "test-secret-xyz"
 
+
 @pytest.fixture(autouse=True)
 def _clean_s3_cache():
     """Reset the cached S3 client between tests."""
     import src.app as app_module
+
     app_module._s3_client = None
     yield
     app_module._s3_client = None
@@ -89,6 +91,7 @@ def s3_env(monkeypatch: pytest.MonkeyPatch):
 def _reload_config(monkeypatch: pytest.MonkeyPatch):
     """Patch module-level config values to match current env."""
     import src.app as app_module
+
     monkeypatch.setattr(app_module, "STORAGE_BACKEND", os.getenv("STORAGE_BACKEND", "filesystem").strip().lower())
     monkeypatch.setattr(app_module, "LOG_DIR", Path(os.getenv("LOG_DIR", "/data")))
     monkeypatch.setattr(app_module, "TOKEN", os.getenv("INGEST_TOKEN"))
@@ -104,6 +107,7 @@ def _reload_config(monkeypatch: pytest.MonkeyPatch):
 def _make_client() -> TestClient:
     """Build a TestClient that skips the lifespan (we test startup separately)."""
     from src.app import app
+
     return TestClient(app, raise_server_exceptions=False)
 
 
@@ -115,19 +119,23 @@ def _valid_payload() -> dict:
 # Unit tests — pure helper functions
 # ===========================================================================
 
+
 class TestTruthy:
     def test_truthy_values(self):
         from src.app import _truthy
+
         for v in ("1", "true", "True", "TRUE", "yes", "YES", "y", "Y", "on", "ON"):
             assert _truthy(v) is True, f"Expected True for {v!r}"
 
     def test_falsy_values(self):
         from src.app import _truthy
+
         for v in ("0", "false", "no", "n", "off", "", "random"):
             assert _truthy(v) is False, f"Expected False for {v!r}"
 
     def test_non_string(self):
         from src.app import _truthy
+
         assert _truthy(1) is True
         assert _truthy(0) is False
         assert _truthy(None) is False
@@ -136,18 +144,22 @@ class TestTruthy:
 class TestSafeCompare:
     def test_equal(self):
         from src.app import _safe_compare
+
         assert _safe_compare("abc", "abc") is True
 
     def test_not_equal(self):
         from src.app import _safe_compare
+
         assert _safe_compare("abc", "xyz") is False
 
     def test_empty_strings(self):
         from src.app import _safe_compare
+
         assert _safe_compare("", "") is True
 
     def test_unicode(self):
         from src.app import _safe_compare
+
         assert _safe_compare("héllo", "héllo") is True
         assert _safe_compare("héllo", "hello") is False
 
@@ -155,12 +167,14 @@ class TestSafeCompare:
 class TestCompactJson:
     def test_no_whitespace(self):
         from src.app import compact_json
+
         result = compact_json({"a": 1, "b": [2, 3]})
         assert " " not in result
         assert json.loads(result) == {"a": 1, "b": [2, 3]}
 
     def test_unicode_preserved(self):
         from src.app import compact_json
+
         result = compact_json({"name": "café"})
         assert "café" in result
 
@@ -168,6 +182,7 @@ class TestCompactJson:
 class TestMakeName:
     def test_format(self):
         from src.app import make_name
+
         name = make_name({"locations": []})
         parts = name.split("-")
         assert len(parts) == 2
@@ -177,6 +192,7 @@ class TestMakeName:
 
     def test_deterministic_hash(self):
         from src.app import make_name
+
         # Same payload within same millisecond should share the hash part
         payload = {"locations": [{"x": 1}]}
         n1 = make_name(payload)
@@ -188,6 +204,7 @@ class TestS3KeyFor:
     def test_with_prefix(self):
         from src.app import s3_key_for
         import src.app as app_module
+
         original = app_module.S3_PREFIX
         try:
             app_module.S3_PREFIX = "gps"
@@ -198,6 +215,7 @@ class TestS3KeyFor:
     def test_without_prefix(self):
         from src.app import s3_key_for
         import src.app as app_module
+
         original = app_module.S3_PREFIX
         try:
             app_module.S3_PREFIX = ""
@@ -210,9 +228,11 @@ class TestS3KeyFor:
 # Filesystem storage tests
 # ===========================================================================
 
+
 class TestFsWriteRequest:
     def test_creates_file(self, fs_env, tmp_data_dir: Path):
         from src.app import fs_write_request
+
         payload = _valid_payload()
         fs_write_request(payload)
         req_dir = tmp_data_dir / "requests"
@@ -223,6 +243,7 @@ class TestFsWriteRequest:
 
     def test_atomic_write_no_temp_files(self, fs_env, tmp_data_dir: Path):
         from src.app import fs_write_request
+
         fs_write_request(_valid_payload())
         req_dir = tmp_data_dir / "requests"
         # No leftover .tmp files
@@ -232,6 +253,7 @@ class TestFsWriteRequest:
 class TestStartupWriteCheckFs:
     def test_creates_and_removes_healthcheck(self, fs_env, tmp_data_dir: Path):
         from src.app import startup_write_check
+
         startup_write_check()
         assert tmp_data_dir.exists()
         # healthcheck.txt should be cleaned up
@@ -242,11 +264,13 @@ class TestStartupWriteCheckFs:
 # S3 storage tests (mocked)
 # ===========================================================================
 
+
 class TestS3WriteRequest:
     def test_puts_object(self, s3_env):
         mock_client = MagicMock()
         with patch("src.app.get_s3_client", return_value=mock_client):
             from src.app import s3_write_request
+
             payload = _valid_payload()
             s3_write_request(payload)
             mock_client.put_object.assert_called_once()
@@ -261,14 +285,17 @@ class TestStartupWriteCheckS3:
         mock_client = MagicMock()
         with patch("src.app.get_s3_client", return_value=mock_client):
             from src.app import startup_write_check
+
             startup_write_check()
             assert mock_client.put_object.call_count == 1
             assert mock_client.delete_object.call_count == 1
 
     def test_s3_no_bucket_raises(self, s3_env, monkeypatch: pytest.MonkeyPatch):
         import src.app as app_module
+
         monkeypatch.setattr(app_module, "S3_BUCKET", None)
         from src.app import startup_write_check
+
         with pytest.raises(RuntimeError, match="S3_BUCKET not set"):
             startup_write_check()
 
@@ -277,6 +304,7 @@ class TestStartupWriteCheckS3:
         mock_client.put_object.side_effect = Exception("connection refused")
         with patch("src.app.get_s3_client", return_value=mock_client):
             from src.app import startup_write_check
+
             with pytest.raises(Exception, match="connection refused"):
                 startup_write_check()
 
@@ -284,6 +312,7 @@ class TestStartupWriteCheckS3:
 class TestGetS3Client:
     def test_caches_client(self, s3_env):
         import src.app as app_module
+
         app_module._s3_client = None
         with patch("boto3.client") as mock_boto:
             mock_boto.return_value = MagicMock()
@@ -294,24 +323,25 @@ class TestGetS3Client:
 
     def test_passes_region_and_endpoint(self, s3_env, monkeypatch: pytest.MonkeyPatch):
         import src.app as app_module
+
         app_module._s3_client = None
         monkeypatch.setattr(app_module, "AWS_REGION", "eu-west-1")
         monkeypatch.setattr(app_module, "AWS_ENDPOINT_URL", "http://minio:9000")
         with patch("boto3.client") as mock_boto:
             mock_boto.return_value = MagicMock()
             app_module.get_s3_client()
-            mock_boto.assert_called_once_with(
-                "s3", region_name="eu-west-1", endpoint_url="http://minio:9000"
-            )
+            mock_boto.assert_called_once_with("s3", region_name="eu-west-1", endpoint_url="http://minio:9000")
 
 
 # ===========================================================================
 # write_request dispatch tests
 # ===========================================================================
 
+
 class TestWriteRequest:
     def test_filesystem_dispatch(self, fs_env, tmp_data_dir: Path):
         from src.app import write_request
+
         write_request(_valid_payload())
         assert list((tmp_data_dir / "requests").glob("*.json"))
 
@@ -319,13 +349,16 @@ class TestWriteRequest:
         mock_client = MagicMock()
         with patch("src.app.get_s3_client", return_value=mock_client):
             from src.app import write_request
+
             write_request(_valid_payload())
             mock_client.put_object.assert_called_once()
 
     def test_s3_no_bucket_raises(self, s3_env, monkeypatch: pytest.MonkeyPatch):
         import src.app as app_module
+
         monkeypatch.setattr(app_module, "S3_BUCKET", None)
         from src.app import write_request
+
         with pytest.raises(RuntimeError, match="S3_BUCKET not set"):
             write_request(_valid_payload())
 
@@ -334,10 +367,12 @@ class TestWriteRequest:
 # log_config tests
 # ===========================================================================
 
+
 class TestLogConfig:
     def test_fs_config(self, fs_env, caplog):
         from src.app import log_config
         import logging
+
         with caplog.at_level(logging.DEBUG, logger="overland"):
             log_config()
         assert "STORAGE_BACKEND=filesystem" in caplog.text
@@ -348,6 +383,7 @@ class TestLogConfig:
         monkeypatch.setenv("AWS_SECRET_ACCESS_KEY", "wJalrXUtnFEMI/K7MDENG/bPxRfiCYEXAMPLEKEY")
         from src.app import log_config
         import logging
+
         with caplog.at_level(logging.DEBUG, logger="overland"):
             log_config()
         assert "AKIAIOSFODNN7EXAMPLE" not in caplog.text
@@ -358,6 +394,7 @@ class TestLogConfig:
 # ===========================================================================
 # Endpoint tests — /health
 # ===========================================================================
+
 
 class TestHealthEndpoint:
     def test_returns_ok(self, fs_env):
@@ -372,6 +409,7 @@ class TestHealthEndpoint:
 # ===========================================================================
 # Endpoint tests — /debug/env
 # ===========================================================================
+
 
 class TestDebugEnvEndpoint:
     def test_404_when_debug_off(self, fs_env):
@@ -403,6 +441,7 @@ class TestDebugEnvEndpoint:
 # ===========================================================================
 # Endpoint tests — POST /api/input
 # ===========================================================================
+
 
 class TestInputEndpoint:
     def test_valid_request_fs(self, fs_env, tmp_data_dir: Path):
@@ -511,6 +550,7 @@ class TestInputEndpoint:
 
     def test_body_too_large_413(self, fs_env, monkeypatch: pytest.MonkeyPatch):
         import src.app as app_module
+
         monkeypatch.setattr(app_module, "MAX_BODY_BYTES", 50)
         client = _make_client()
         big_payload = {"locations": [{"data": "x" * 100}]}
@@ -523,6 +563,7 @@ class TestInputEndpoint:
 
     def test_content_length_too_large_413(self, fs_env, monkeypatch: pytest.MonkeyPatch):
         import src.app as app_module
+
         monkeypatch.setattr(app_module, "MAX_BODY_BYTES", 50)
         client = _make_client()
         resp = client.post(
@@ -540,6 +581,7 @@ class TestInputEndpoint:
 # ===========================================================================
 # Lifespan tests
 # ===========================================================================
+
 
 class TestInputEndpointEdgeCases:
     """Cover remaining edge-case branches."""
@@ -561,6 +603,7 @@ class TestInputEndpointEdgeCases:
     def test_body_exceeds_limit_no_content_length(self, fs_env, monkeypatch: pytest.MonkeyPatch):
         """Body is too large but no Content-Length header is present."""
         import src.app as app_module
+
         monkeypatch.setattr(app_module, "MAX_BODY_BYTES", 10)
         client = _make_client()
         resp = client.post(
@@ -580,6 +623,7 @@ class TestFsWriteRequestErrorPath:
 
     def test_rename_failure_cleans_up_temp(self, fs_env, tmp_data_dir: Path):
         from src.app import fs_write_request
+
         payload = _valid_payload()
         with patch("os.rename", side_effect=OSError("disk full")):
             with pytest.raises(OSError, match="disk full"):
@@ -591,6 +635,7 @@ class TestFsWriteRequestErrorPath:
     def test_cleanup_failure_still_raises(self, fs_env, tmp_data_dir: Path):
         """Even if os.unlink fails during cleanup, the original error propagates."""
         from src.app import fs_write_request
+
         payload = _valid_payload()
         with patch("os.rename", side_effect=OSError("disk full")):
             with patch("os.unlink", side_effect=OSError("permission denied")):
@@ -601,10 +646,12 @@ class TestFsWriteRequestErrorPath:
 class TestLifespan:
     def test_missing_token_raises(self, monkeypatch: pytest.MonkeyPatch):
         import src.app as app_module
+
         monkeypatch.setattr(app_module, "TOKEN", None)
         monkeypatch.setattr(app_module, "STORAGE_BACKEND", "filesystem")
         monkeypatch.setattr(app_module, "LOG_DIR", Path(tempfile.mkdtemp()))
         from src.app import app
+
         with pytest.raises(RuntimeError, match="INGEST_TOKEN"):
             with TestClient(app):
                 pass
@@ -612,11 +659,13 @@ class TestLifespan:
     def test_startup_with_debug(self, fs_env_debug, tmp_data_dir: Path):
         """Lifespan runs log_config and startup_write_check when DEBUG=1."""
         from src.app import app
+
         with TestClient(app):
             pass  # lifespan runs automatically
 
     def test_startup_without_debug(self, fs_env, tmp_data_dir: Path):
         """Lifespan runs startup_write_check but skips log_config when DEBUG=0."""
         from src.app import app
+
         with TestClient(app):
             pass
