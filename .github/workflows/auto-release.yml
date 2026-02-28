@@ -1,0 +1,84 @@
+# Auto-release — tag and create a GitHub release when __version__ changes on main
+#
+# Triggers on pushes to main that modify src/app.py. If the version in
+# __version__ doesn't already have a matching git tag, a new tag and GitHub
+# release are created automatically.
+#
+# The nightly-deps workflow already handles its own tagging, so this workflow
+# skips commits made by github-actions[bot] to avoid duplicate releases.
+name: Auto Release
+
+on:
+  push:
+    branches: [main]
+    paths:
+      - "src/app.py"
+
+permissions:
+  contents: write
+
+jobs:
+  release:
+    runs-on: ubuntu-latest
+    # Skip automated commits from the nightly-deps workflow
+    if: github.actor != 'github-actions[bot]'
+    steps:
+      - uses: actions/checkout@v4
+        with:
+          fetch-depth: 0 # need tags
+
+      - uses: actions/setup-python@v5
+        with:
+          python-version: "3.12"
+
+      - name: Install dependencies
+        run: pip install -r requirements-dev.txt
+
+      - name: Run tests
+        run: pytest tests/ -v --cov=src --cov-report=term-missing --tb=short
+
+      - name: Extract version
+        id: version
+        run: |
+          VERSION=$(python3 -c "import re; print(re.search(r'__version__\s*=\s*\"([^\"]+)\"', open('src/app.py').read()).group(1))")
+          echo "version=$VERSION" >> "$GITHUB_OUTPUT"
+          echo "tag=v$VERSION" >> "$GITHUB_OUTPUT"
+
+      - name: Check if tag exists
+        id: check_tag
+        run: |
+          if git rev-parse "refs/tags/${{ steps.version.outputs.tag }}" >/dev/null 2>&1; then
+            echo "exists=true" >> "$GITHUB_OUTPUT"
+          else
+            echo "exists=false" >> "$GITHUB_OUTPUT"
+          fi
+
+      - name: Create tag and release
+        if: steps.check_tag.outputs.exists == 'false'
+        env:
+          GH_TOKEN: ${{ secrets.GITHUB_TOKEN }}
+        run: |
+          TAG="${{ steps.version.outputs.tag }}"
+          VERSION="${{ steps.version.outputs.version }}"
+
+          git config user.name "github-actions[bot]"
+          git config user.email "github-actions[bot]@users.noreply.github.com"
+          git tag "$TAG"
+          git push origin "$TAG"
+
+          # Extract the changelog section for this version
+          NOTES=$(python3 - "$VERSION" <<'PYEOF'
+          import re, sys
+          version = sys.argv[1]
+          text = open("CHANGELOG.md").read()
+          # Match from "## [version]" to the next "## [" or end of file
+          pattern = rf"## \[{re.escape(version)}\][^\n]*\n(.*?)(?=\n## \[|\Z)"
+          m = re.search(pattern, text, re.DOTALL)
+          print(m.group(1).strip() if m else f"Release {version}")
+          PYEOF
+          )
+
+          gh release create "$TAG" \
+            --title "$TAG" \
+            --notes "$NOTES" \
+            --latest

@@ -6,6 +6,18 @@ The format is based on [Keep a Changelog](https://keepachangelog.com/en/1.1.0/),
 and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0.html).
 
 
+## [1.2.0] - 2026-02-28
+
+### Changed
+- **Auth**: Ingest token now accepted via `Authorization: Bearer` header and
+  `?token=` query parameter, in addition to `X-Ingest-Token` header.
+  Priority: `X-Ingest-Token` > `Bearer` > `?token=`.
+- Removed `AUTH_SECRET` configuration — the secondary bearer check was
+  incompatible with the Overland app (which can only send URL + Access Token).
+
+### Removed
+- `AUTH_SECRET` environment variable and dual-header auth flow.
+
 ## [1.1.0] - 2026-02-28
 
 ### Changed

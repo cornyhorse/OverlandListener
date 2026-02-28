@@ -43,7 +43,9 @@ CHANGELOG.md            — release history (Keep a Changelog format)
 - All secret comparisons must use `hmac.compare_digest()`.
 - Filesystem writes should be atomic (write to temp file, then `os.rename()`).
 - Keep `src/app.py` as a single file unless complexity warrants splitting.
-- PRs must pass lint + tests before merging to `main`. Direct pushes to `main` are not allowed.
+- PRs should pass lint + tests before merging to `main`.
+- Prefer working on feature branches and merging via PR, but direct pushes
+  to `main` are acceptable for small fixes (no branch protection is enforced).
 
 ## Testing
 
@@ -57,12 +59,15 @@ CHANGELOG.md            — release history (Keep a Changelog format)
 
 - Semantic Versioning (semver). Canonical version in `src/app.py` `__version__`.
 - `scripts/bump_version.py` updates version across `src/app.py`, `Dockerfile`, `docker-compose.yaml`.
+- **Auto-release workflow**: pushes to `main` that change `src/app.py`
+  `__version__` trigger a GitHub release automatically via
+  `.github/workflows/auto-release.yml`.
 - Nightly GitHub Actions workflow bumps deps, runs tests, auto-releases minor if changed.
 - All releases documented in `CHANGELOG.md`.
 
 ## Security Principles
 
-- Tokens in headers, never in query parameters.
+- Tokens in headers or query parameters for constrained clients.
 - Request body size is capped (`MAX_BODY_BYTES`, default 1 MB).
 - Container runs as non-root (`appuser`).
 - Debug endpoints require authentication.
