@@ -46,19 +46,20 @@ scripts/lint.sh          # check only (CI mode)
 scripts/lint.sh --fix    # auto-format in place
 ```
 
-## Branch Protection & Pull Requests
+## Branch Workflow
 
-The `main` branch requires a pull request with passing CI (lint + tests) before
-merging. Direct pushes to `main` are not allowed.
+All changes go through feature branches merged via pull request. Direct pushes
+to `main` are not allowed.
 
-To configure branch protection in GitHub:
+1. Create a branch from `main` (e.g. `feature/my-change`)
+2. Commit your changes and push the branch
+3. Open a pull request targeting `main`
+4. CI runs automatically — both **lint** and **test** jobs must pass
+5. Merge the PR once CI is green
 
-1. Go to **Settings → Branches → Branch protection rules**
-2. Add rule for `main`
-3. Enable:
-   - **Require a pull request before merging**
-   - **Require status checks to pass before merging** — select `lint` and `test`
-   - **Require branches to be up to date before merging**
+> **Note**: No GitHub branch protection rule is enforced — this is a team
+> convention. The CI workflow (lint + tests) runs on every PR and must pass
+> before merging.
 
 ## CI Workflows
 
