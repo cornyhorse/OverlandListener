@@ -5,6 +5,34 @@ All notable changes to this project will be documented in this file.
 The format is based on [Keep a Changelog](https://keepachangelog.com/en/1.1.0/),
 and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0.html).
 
+
+## [1.1.0] - 2026-02-28
+
+### Changed
+- Bumped dependencies to latest compatible versions.
+
+#### Runtime
+```
+- fastapi==0.115.0
+- uvicorn[standard]==0.30.6
+- boto3==1.34.158
++ fastapi==0.134.0
++ uvicorn[standard]==0.41.0
++ boto3==1.42.59
+```
+
+#### Dev
+```
+- pytest==8.3.3
+- pytest-cov==5.0.0
+- httpx==0.27.2
+- black==24.10.0
++ pytest==9.0.2
++ pytest-cov==7.0.0
++ httpx==0.28.1
++ black==26.1.0
+```
+
 ## [1.0.0] - 2026-02-27
 
 ### Added
