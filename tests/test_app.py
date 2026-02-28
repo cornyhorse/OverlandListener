@@ -9,7 +9,6 @@ from unittest.mock import MagicMock, patch
 import pytest
 from fastapi.testclient import TestClient
 
-
 # ---------------------------------------------------------------------------
 # Fixtures — set required env vars before importing the app module
 # ---------------------------------------------------------------------------
@@ -57,7 +56,6 @@ def fs_env_debug(tmp_data_dir: Path, monkeypatch: pytest.MonkeyPatch):
     monkeypatch.setenv("DEBUG", "1")
     monkeypatch.delenv("S3_BUCKET", raising=False)
     _reload_config(monkeypatch)
-
 
 
 @pytest.fixture()

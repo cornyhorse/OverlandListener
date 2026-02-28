@@ -37,6 +37,7 @@ CHANGELOG.md            — release history (Keep a Changelog format)
 
 - **Python 3.12+**, type hints encouraged on all public functions.
 - **Formatting**: `black` (run `scripts/lint.sh --fix` to auto-format).
+- Always run `scripts/lint.sh` before committing to catch formatting issues.
 - One import per line (PEP 8).
 - Use `logging` module — never bare `print()` for observability.
 - Secrets are **never** logged, even partially masked.
