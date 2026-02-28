@@ -43,9 +43,11 @@ CHANGELOG.md            — release history (Keep a Changelog format)
 - All secret comparisons must use `hmac.compare_digest()`.
 - Filesystem writes should be atomic (write to temp file, then `os.rename()`).
 - Keep `src/app.py` as a single file unless complexity warrants splitting.
-- PRs should pass lint + tests before merging to `main`.
-- Prefer working on feature branches and merging via PR, but direct pushes
-  to `main` are acceptable for small fixes (no branch protection is enforced).
+- All changes must be committed to a feature branch and merged to `main`
+  via pull request. Direct pushes to `main` are not allowed.
+- CI (lint + tests) must pass before a PR can be merged.
+  No branch protection rule is enforced in GitHub — this is a convention
+  that Copilot and contributors must follow.
 
 ## Testing
 
