@@ -26,7 +26,6 @@ logging.basicConfig(
 STORAGE_BACKEND: str = os.getenv("STORAGE_BACKEND", "filesystem").strip().lower()
 LOG_DIR: Path = Path(os.getenv("LOG_DIR", "/data"))
 TOKEN: str | None = os.getenv("INGEST_TOKEN")
-AUTH_SECRET: str | None = os.getenv("AUTH_SECRET")
 
 S3_BUCKET: str | None = os.getenv("S3_BUCKET")
 S3_PREFIX: str = os.getenv("S3_PREFIX", "").strip().strip("/")
@@ -220,16 +219,28 @@ def debug_env(request: Request):
 @app.post("/api/input")
 async def input_endpoint(request: Request):
     """Receive a location payload from the Overland app."""
-    # --- Auth: token via header ---
-    req_token = (request.headers.get("x-ingest-token") or "").strip()
-    if not TOKEN or not req_token or not _safe_compare(req_token, TOKEN):
+    if not TOKEN:
         raise HTTPException(status_code=401, detail="bad token")
 
-    if AUTH_SECRET:
+    # --- Auth: check X-Ingest-Token header first ---
+    req_token = (request.headers.get("x-ingest-token") or "").strip()
+    if req_token and _safe_compare(req_token, TOKEN):
+        pass  # authenticated via header
+    else:
+        # --- Fallback: Authorization: Bearer <token> ---
         auth = (request.headers.get("authorization") or "").strip()
-        expected_bearer = f"Bearer {AUTH_SECRET}"
-        if not auth or not _safe_compare(auth, expected_bearer):
-            raise HTTPException(status_code=401, detail="bad authorization")
+        bearer_token = ""
+        if auth.lower().startswith("bearer "):
+            bearer_token = auth[7:].strip()
+        if bearer_token and _safe_compare(bearer_token, TOKEN):
+            pass  # authenticated via Bearer
+        else:
+            # --- Fallback: ?token= query parameter ---
+            query_token = (request.query_params.get("token") or "").strip()
+            if query_token and _safe_compare(query_token, TOKEN):
+                pass  # authenticated via query param
+            else:
+                raise HTTPException(status_code=401, detail="bad token")
 
     # --- Body size guard ---
     content_length = request.headers.get("content-length")

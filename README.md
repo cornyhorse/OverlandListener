@@ -12,8 +12,8 @@ docker compose up -d
 curl http://localhost:8000/health
 ```
 
-Then point the Overland app at `https://your-host:8000/api/input` with the
-`X-Ingest-Token` header set to your token.
+Then point the Overland app at `https://your-host:8000/api/input` with your
+`INGEST_TOKEN` as the Access Token.
 
 ## Configuration
 
@@ -23,7 +23,6 @@ All configuration is via environment variables — see
 | Variable | Required | Default | Description |
 |----------|----------|---------|-------------|
 | `INGEST_TOKEN` | **yes** | — | Shared secret for authenticating requests |
-| `AUTH_SECRET` | no | — | Optional secondary `Authorization: Bearer` header |
 | `STORAGE_BACKEND` | no | `filesystem` | `filesystem` or `s3` |
 | `LOG_DIR` | no | `/data` | Base directory for filesystem storage |
 | `S3_BUCKET` | if s3 | — | Target S3 bucket |
@@ -40,13 +39,13 @@ checklist, see the **[Deployment Guide](docs/deployment.md)**.
 
 | Method | Path | Auth | Description |
 |--------|------|------|-------------|
-| `POST` | `/api/input` | `X-Ingest-Token` | Receive Overland location payload |
+| `POST` | `/api/input` | `X-Ingest-Token` / `Bearer` / `?token=` | Receive Overland location payload |
 | `GET` | `/health` | none | Liveness probe — returns `{"status":"ok"}` |
 | `GET` | `/debug/env` | `X-Ingest-Token` + `DEBUG=1` | Non-secret config dump |
 
 ## Security
 
-- Tokens in headers — never in query parameters or URLs
+- Tokens in headers — query parameter fallback available for constrained clients
 - Constant-time `hmac.compare_digest()` for all secret comparisons
 - Request bodies size-limited (default 1 MB)
 - Atomic filesystem writes (temp file + rename)

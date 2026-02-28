@@ -1,0 +1,27 @@
+# Notify MattsTools to deploy on new release
+#
+# When a GitHub release is published, sends a repository_dispatch event
+# to cornyhorse/MattsTools to trigger the deploy-overland job.
+#
+# Required Secrets:
+#   MATTSTOOLS_DISPATCH_TOKEN — fine-grained PAT scoped to cornyhorse/MattsTools
+#                               with contents: write permission
+#
+name: Notify Deploy
+
+on:
+  release:
+    types: [published]
+
+jobs:
+  notify:
+    name: Trigger deploy in MattsTools
+    runs-on: ubuntu-latest
+    steps:
+      - name: Send repository_dispatch to MattsTools
+        uses: peter-evans/repository-dispatch@v3
+        with:
+          token: ${{ secrets.MATTSTOOLS_DISPATCH_TOKEN }}
+          repository: cornyhorse/MattsTools
+          event-type: overland-release
+          client-payload: '{"tag": "${{ github.event.release.tag_name }}", "release_name": "${{ github.event.release.name }}"}'

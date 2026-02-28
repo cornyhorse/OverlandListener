@@ -100,23 +100,14 @@ behind a TLS-terminating reverse proxy:
 In the Overland app settings:
 
 1. Set the **Receiver Endpoint** to `https://your-host/api/input`
-2. Add a custom HTTP header:
-   - **Name**: `X-Ingest-Token`
-   - **Value**: your `INGEST_TOKEN`
+2. Set the **Access Token** to your `INGEST_TOKEN` value
 
-If you've configured `AUTH_SECRET`, also add:
-   - **Name**: `Authorization`
-   - **Value**: `Bearer your-auth-secret`
+The app sends the token as an `Authorization: Bearer <token>` header, which
+OverlandListener accepts automatically. You can also append `?token=<value>` to
+the URL as a fallback.
 
-## Optional Auth Layer
-
-Set `AUTH_SECRET` to require a secondary `Authorization: Bearer <secret>` header
-on every request. This is useful if you want two-factor auth (token + bearer) or
-need to integrate with a proxy that already adds an Authorization header.
-
-```dotenv
-AUTH_SECRET=my-secondary-secret
-```
+> **Tip**: API clients can alternatively send the token via the `X-Ingest-Token`
+> header, which takes priority over the Bearer header and query parameter.
 
 ## Request Size Limit
 
@@ -148,7 +139,6 @@ DEBUG=1
 | Variable | Required | Default | Description |
 |----------|----------|---------|-------------|
 | `INGEST_TOKEN` | **yes** | — | Shared secret for authenticating requests |
-| `AUTH_SECRET` | no | — | Optional secondary `Authorization: Bearer` header |
 | `STORAGE_BACKEND` | no | `filesystem` | `filesystem` or `s3` |
 | `LOG_DIR` | no | `/data` | Base directory for filesystem storage |
 | `S3_BUCKET` | if s3 | — | Target S3 bucket |

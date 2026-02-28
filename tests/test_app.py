@@ -18,7 +18,6 @@ from fastapi.testclient import TestClient
 # at top level. We patch the environment before every test module load.
 
 TEST_TOKEN = "test-token-abc123"
-TEST_AUTH_SECRET = "test-secret-xyz"
 
 
 @pytest.fixture(autouse=True)
@@ -44,7 +43,6 @@ def fs_env(tmp_data_dir: Path, monkeypatch: pytest.MonkeyPatch):
     monkeypatch.setenv("STORAGE_BACKEND", "filesystem")
     monkeypatch.setenv("LOG_DIR", str(tmp_data_dir))
     monkeypatch.setenv("DEBUG", "0")
-    monkeypatch.delenv("AUTH_SECRET", raising=False)
     monkeypatch.delenv("S3_BUCKET", raising=False)
     # Reload config values in the module
     _reload_config(monkeypatch)
@@ -57,21 +55,9 @@ def fs_env_debug(tmp_data_dir: Path, monkeypatch: pytest.MonkeyPatch):
     monkeypatch.setenv("STORAGE_BACKEND", "filesystem")
     monkeypatch.setenv("LOG_DIR", str(tmp_data_dir))
     monkeypatch.setenv("DEBUG", "1")
-    monkeypatch.delenv("AUTH_SECRET", raising=False)
     monkeypatch.delenv("S3_BUCKET", raising=False)
     _reload_config(monkeypatch)
 
-
-@pytest.fixture()
-def fs_env_with_auth(tmp_data_dir: Path, monkeypatch: pytest.MonkeyPatch):
-    """Set env vars with both token and auth secret."""
-    monkeypatch.setenv("INGEST_TOKEN", TEST_TOKEN)
-    monkeypatch.setenv("AUTH_SECRET", TEST_AUTH_SECRET)
-    monkeypatch.setenv("STORAGE_BACKEND", "filesystem")
-    monkeypatch.setenv("LOG_DIR", str(tmp_data_dir))
-    monkeypatch.setenv("DEBUG", "0")
-    monkeypatch.delenv("S3_BUCKET", raising=False)
-    _reload_config(monkeypatch)
 
 
 @pytest.fixture()
@@ -83,7 +69,6 @@ def s3_env(monkeypatch: pytest.MonkeyPatch):
     monkeypatch.setenv("S3_PREFIX", "gps")
     monkeypatch.setenv("AWS_REGION", "us-east-1")
     monkeypatch.setenv("DEBUG", "0")
-    monkeypatch.delenv("AUTH_SECRET", raising=False)
     monkeypatch.delenv("AWS_ENDPOINT_URL", raising=False)
     _reload_config(monkeypatch)
 
@@ -95,7 +80,6 @@ def _reload_config(monkeypatch: pytest.MonkeyPatch):
     monkeypatch.setattr(app_module, "STORAGE_BACKEND", os.getenv("STORAGE_BACKEND", "filesystem").strip().lower())
     monkeypatch.setattr(app_module, "LOG_DIR", Path(os.getenv("LOG_DIR", "/data")))
     monkeypatch.setattr(app_module, "TOKEN", os.getenv("INGEST_TOKEN"))
-    monkeypatch.setattr(app_module, "AUTH_SECRET", os.getenv("AUTH_SECRET"))
     monkeypatch.setattr(app_module, "S3_BUCKET", os.getenv("S3_BUCKET"))
     monkeypatch.setattr(app_module, "S3_PREFIX", os.getenv("S3_PREFIX", "").strip().strip("/"))
     monkeypatch.setattr(app_module, "AWS_REGION", os.getenv("AWS_REGION"))
@@ -483,37 +467,67 @@ class TestInputEndpoint:
         )
         assert resp.status_code == 401
 
-    def test_bad_auth_header_401(self, fs_env_with_auth):
+    def test_bearer_token_accepted(self, fs_env, tmp_data_dir: Path):
+        """Token accepted via Authorization: Bearer header (no X-Ingest-Token)."""
         client = _make_client()
         resp = client.post(
             "/api/input",
             json=_valid_payload(),
-            headers={
-                "x-ingest-token": TEST_TOKEN,
-                "authorization": "Bearer wrong-secret",
-            },
+            headers={"authorization": f"Bearer {TEST_TOKEN}"},
         )
-        assert resp.status_code == 401
+        assert resp.status_code == 200
+        assert resp.json() == {"result": "ok"}
+        files = list((tmp_data_dir / "requests").glob("*.json"))
+        assert len(files) == 1
 
-    def test_valid_auth_header(self, fs_env_with_auth, tmp_data_dir: Path):
+    def test_query_param_token_accepted(self, fs_env, tmp_data_dir: Path):
+        """Token accepted via ?token= query parameter."""
+        client = _make_client()
+        resp = client.post(
+            f"/api/input?token={TEST_TOKEN}",
+            json=_valid_payload(),
+        )
+        assert resp.status_code == 200
+        assert resp.json() == {"result": "ok"}
+        files = list((tmp_data_dir / "requests").glob("*.json"))
+        assert len(files) == 1
+
+    def test_header_takes_priority_over_bearer(self, fs_env, tmp_data_dir: Path):
+        """X-Ingest-Token takes priority when both headers are present."""
         client = _make_client()
         resp = client.post(
             "/api/input",
             json=_valid_payload(),
             headers={
                 "x-ingest-token": TEST_TOKEN,
-                "authorization": f"Bearer {TEST_AUTH_SECRET}",
+                "authorization": "Bearer wrong-value",
             },
         )
         assert resp.status_code == 200
 
-    def test_missing_auth_header_when_required(self, fs_env_with_auth):
+    def test_wrong_bearer_token_401(self, fs_env):
+        """Wrong Bearer token returns 401."""
         client = _make_client()
         resp = client.post(
             "/api/input",
             json=_valid_payload(),
-            headers={"x-ingest-token": TEST_TOKEN},
+            headers={"authorization": "Bearer wrong-token"},
         )
+        assert resp.status_code == 401
+
+    def test_wrong_query_param_token_401(self, fs_env):
+        """Wrong query param token returns 401."""
+        client = _make_client()
+        resp = client.post(
+            "/api/input?token=wrong-token",
+            json=_valid_payload(),
+        )
+        assert resp.status_code == 401
+
+    def test_no_token_at_all_401(self, fs_env):
+        """No token provided at all returns 401."""
+        client = _make_client()
+        resp = client.post("/api/input", json=_valid_payload())
         assert resp.status_code == 401
 
     def test_invalid_json_400(self, fs_env):
