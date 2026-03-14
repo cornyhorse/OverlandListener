@@ -14,6 +14,18 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 
 
+
+## [1.11.0] - 2026-03-14
+
+### Changed
+- Bumped dependencies to latest compatible versions.
+
+#### Runtime
+```
+- boto3==1.42.67
++ boto3==1.42.68
+```
+
 ## [1.10.0] - 2026-03-13
 
 ### Changed
