@@ -20,6 +20,18 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 
 
+
+## [1.17.0] - 2026-03-22
+
+### Changed
+- Bumped dependencies to latest compatible versions.
+
+#### Dev
+```
+- pytest-cov==7.0.0
++ pytest-cov==7.1.0
+```
+
 ## [1.16.0] - 2026-03-21
 
 ### Changed
