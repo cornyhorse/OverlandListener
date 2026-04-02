@@ -28,6 +28,20 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 
 
+
+## [1.25.0] - 2026-04-02
+
+### Changed
+- Bumped dependencies to latest compatible versions.
+
+#### Runtime
+```
+- fastapi==0.135.2
++ fastapi==0.135.3
+- boto3==1.42.80
++ boto3==1.42.81
+```
+
 ## [1.24.0] - 2026-04-01
 
 ### Changed
