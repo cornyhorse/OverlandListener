@@ -2,7 +2,7 @@ FROM python:3.12-slim
 
 LABEL org.opencontainers.image.title="OverlandListener" \
       org.opencontainers.image.description="GPS location data receiver for the Overland app" \
-      org.opencontainers.image.version="1.25.0" \
+      org.opencontainers.image.version="1.26.0" \
       org.opencontainers.image.source="https://github.com/matt/OverlandListener"
 
 # Create non-root user
