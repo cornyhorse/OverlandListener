@@ -40,6 +40,20 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 
 
+
+## [1.37.0] - 2026-04-22
+
+### Changed
+- Bumped dependencies to latest compatible versions.
+
+#### Runtime
+```
+- uvicorn[standard]==0.44.0
+- boto3==1.42.92
++ uvicorn[standard]==0.45.0
++ boto3==1.42.93
+```
+
 ## [1.36.0] - 2026-04-21
 
 ### Changed
