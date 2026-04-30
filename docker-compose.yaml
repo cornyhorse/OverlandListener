@@ -2,7 +2,7 @@ version: "3.8"
 services:
   overland-listener:
     build: .
-    image: overland-listener:1.41.0
+    image: overland-listener:1.42.0
     container_name: overland-listener
     environment:
       INGEST_TOKEN: "${INGEST_TOKEN}"
