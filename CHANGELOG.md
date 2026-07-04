@@ -90,6 +90,18 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 
 
+
+## [1.87.0] - 2026-07-04
+
+### Changed
+- Bumped dependencies to latest compatible versions.
+
+#### Runtime
+```
+- uvicorn[standard]==0.49.0
++ uvicorn[standard]==0.50.0
+```
+
 ## [1.86.0] - 2026-07-03
 
 ### Changed
