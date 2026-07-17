@@ -1,6 +1,6 @@
 """OverlandListener — receive and store GPS data from the Overland app."""
 
-__version__ = "1.95.0"
+__version__ = "1.96.0"
 
 import hashlib
 import hmac
