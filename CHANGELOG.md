@@ -160,6 +160,18 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 
 
+
+## [1.157.0] - 2026-10-11
+
+### Changed
+- Bumped dependencies to latest compatible versions.
+
+#### Dev
+```
+- black==26.10.0
++ black==26.10.1
+```
+
 ## [1.156.0] - 2026-10-10
 
 ### Changed
