@@ -1,0 +1,45 @@
+# Gitea Actions port of .github/workflows/ci.yml (lint, then tests with the coverage threshold).
+# The release workflows (auto-release, nightly-deps, notify-deploy) tag, create releases or dispatch a deploy, so they stay on GitHub.
+# No secrets are used, so it is safe on pull_request (including forks).
+name: CI
+
+on:
+  push:
+    branches: [main]
+  pull_request:
+    branches: [main]
+
+jobs:
+  lint:
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@11d5960a326750d5838078e36cf38b85af677262 # v4.4.0
+
+      - uses: actions/setup-python@a26af69be951a213d495a4c3e4e4022e16d87065 # v5.6.0
+        with:
+          python-version: "3.12"
+
+      - name: Install dependencies
+        run: pip install -r requirements-dev.txt
+
+      - name: Check formatting
+        run: scripts/lint.sh
+
+  test:
+    runs-on: ubuntu-latest
+    needs: lint
+    steps:
+      - uses: actions/checkout@11d5960a326750d5838078e36cf38b85af677262 # v4.4.0
+
+      - uses: actions/setup-python@a26af69be951a213d495a4c3e4e4022e16d87065 # v5.6.0
+        with:
+          python-version: "3.12"
+
+      - name: Install dependencies
+        run: pip install -r requirements-dev.txt
+
+      - name: Run tests
+        run: pytest tests/ -v --cov=src --cov-report=term-missing --tb=short
+
+      - name: Enforce coverage threshold
+        run: pytest tests/ --cov=src --cov-fail-under=95 -q --no-header
