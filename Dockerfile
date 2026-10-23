@@ -10,6 +10,9 @@ RUN adduser --disabled-password --no-create-home appuser
 
 # Install dependencies
 WORKDIR /app
+# emSign ECC Root CA - G3 distrust (2026-10): pip bundles its own certifi
+RUN python -m pip install --no-cache-dir --upgrade "pip>=26.2.2"
+
 COPY requirements.txt .
 RUN pip install --no-cache-dir -r requirements.txt
 
