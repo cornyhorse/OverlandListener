@@ -186,6 +186,18 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 
 
+
+## [1.183.0] - 2026-11-15
+
+### Changed
+- Bumped dependencies to latest compatible versions.
+
+#### Runtime
+```
+- fastapi==0.162.7
++ fastapi==0.163.0
+```
+
 ## [1.182.0] - 2026-11-14
 
 ### Changed
