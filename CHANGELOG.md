@@ -196,6 +196,18 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 
 
+
+## [1.193.0] - 2026-11-27
+
+### Changed
+- Bumped dependencies to latest compatible versions.
+
+#### Dev
+```
+- httpx==0.28.1
++ httpx==0.29.0
+```
+
 ## [1.192.0] - 2026-11-26
 
 ### Changed
